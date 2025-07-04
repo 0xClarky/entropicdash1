@@ -1,0 +1,102 @@
+import requests
+import logging
+import json
+import time  # Add this import
+from datetime import datetime, timedelta
+
+class PoolInfoAPI:
+    def __init__(self):
+        self.base_url = "https://api.geckoterminal.com/api/v2"
+        self.headers = {"Accept": "application/json"}
+        self.sol_address = "So11111111111111111111111111111111111111112"
+        self.logger = logging.getLogger(__name__)
+        self.retry_count = 3
+        self.retry_delay = 1
+        self.update_cache = {}  # Track tokens that have been updated
+        self.update_delay = 120  # Seconds to wait before update
+
+    def get_pool_info(self, pool_address, network="solana"):
+        """Fetch pool information with retries and single delayed update"""
+        default_response = {
+            'mint_authority': False,
+            'freeze_authority': False,
+            'top_10_holders': 0.0,
+            'gt_score': 0.0
+        }
+
+        # Check if this is a delayed update
+        now = datetime.now()
+        if pool_address in self.update_cache:
+            last_update, update_count = self.update_cache[pool_address]
+            # If we previously got zeros and it's been at least 30 seconds, try again
+            result = self._fetch_pool_info(pool_address, network)
+            if result['gt_score'] == 0.0 and result['top_10_holders'] == 0.0:
+                if (now - last_update).total_seconds() >= 30:
+                    self.logger.info(f"Retrying {pool_address} due to zero values")
+                    result = self._fetch_pool_info(pool_address, network)
+                    if result['gt_score'] > 0.0 or result['top_10_holders'] > 0.0:
+                        self.update_cache[pool_address] = (now, update_count + 1)
+                        return result
+            return result
+
+        # First time fetch
+        result = self._fetch_pool_info(pool_address, network)
+        # If first fetch returns zeros, retry once immediately
+        if result['gt_score'] == 0.0 and result['top_10_holders'] == 0.0:
+            self.logger.info(f"Initial fetch returned zeros for {pool_address}, retrying...")
+            time.sleep(1)  # Brief delay before retry
+            result = self._fetch_pool_info(pool_address, network)
+        
+        self.update_cache[pool_address] = (now, 1)
+        return result
+
+    def _fetch_pool_info(self, pool_address, network="solana"):
+        """Internal method to fetch pool information"""
+        default_response = {
+            'mint_authority': False,
+            'freeze_authority': False,
+            'top_10_holders': 0.0,
+            'gt_score': 0.0
+        }
+
+        try:
+            endpoint = f"{self.base_url}/networks/{network}/pools/{pool_address}/info"
+            response = requests.get(endpoint, headers=self.headers)
+            response.raise_for_status()
+            
+            data = response.json()
+            tokens = data.get('data', [])
+            
+            if not tokens:
+                return default_response
+                
+            # Find non-SOL token
+            non_sol_token = None
+            for token in tokens:
+                attrs = token.get('attributes', {})
+                if attrs.get('address') != self.sol_address:
+                    non_sol_token = token
+                    break
+                    
+            if not non_sol_token:
+                return default_response
+                    
+            attrs = non_sol_token.get('attributes', {})
+            holders = attrs.get('holders', {}) or {}
+            distribution = holders.get('distribution_percentage', {}) or {}
+            
+            # Just get the raw percentage string, no conversion needed
+            top_10 = distribution.get('top_10', '0')
+            if isinstance(top_10, str):
+                top_10 = top_10.replace('%', '')  # Remove % if present
+            
+            return {
+                'mint_authority': attrs.get('mint_authority') == "yes",
+                'freeze_authority': attrs.get('freeze_authority') == "yes",
+                'top_10_holders': float(top_10 or 0),  # Store as float
+                'gt_score': float(attrs.get('gt_score', 0) or 0)
+            }
+            
+        except Exception as e:
+            self.logger.error(f"Error fetching pool info for {pool_address}: {e}")
+            return default_response
