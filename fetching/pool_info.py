@@ -1,7 +1,8 @@
 import requests
 import logging
 import json
-import time  # Add this import
+import time
+import random  # Add this import
 from datetime import datetime, timedelta
 
 class PoolInfoAPI:
