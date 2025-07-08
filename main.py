@@ -187,7 +187,7 @@ async def startup_event():
     update_existing_tokens()
     
     # Schedule tasks
-    schedule.every(10).seconds.do(fetch_new_tokens)
+    schedule.every(5).seconds.do(fetch_new_tokens)
     schedule.every(1).minutes.do(update_existing_tokens)
     
     # Start scheduler in a background thread
