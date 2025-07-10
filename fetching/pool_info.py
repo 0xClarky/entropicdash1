@@ -68,7 +68,8 @@ class PoolInfoAPI:
             'mint_authority': False,
             'freeze_authority': False,
             'top_10_holders': 0.0,
-            'gt_score': 0.0
+            'gt_score': 0.0,
+            'mint_address': None  # Add mint_address to default response
         }
 
         retries = 0
@@ -80,6 +81,7 @@ class PoolInfoAPI:
                 response = requests.get(endpoint, headers=self.headers)
                 
                 if response.status_code == 429:
+                    self.logger.warning(f"Rate limit hit for pool {pool_address}")
                     retry_after = int(response.headers.get('Retry-After', 5))
                     time.sleep(retry_after + random.uniform(0.1, 1.0))
                     retries += 1
@@ -91,33 +93,41 @@ class PoolInfoAPI:
                 tokens = data.get('data', [])
                 
                 if not tokens:
+                    self.logger.warning(f"No tokens found for pool {pool_address}")
                     return default_response
                     
-                # Find non-SOL token
+                # Find non-SOL token and log all tokens for debugging
                 non_sol_token = None
                 for token in tokens:
                     attrs = token.get('attributes', {})
-                    if attrs.get('address') != self.sol_address:
+                    addr = attrs.get('address')
+                    self.logger.debug(f"Found token: {attrs.get('symbol')} at {addr}")
+                    if addr != self.sol_address:
                         non_sol_token = token
                         break
                         
                 if not non_sol_token:
+                    self.logger.warning(f"No non-SOL token found for pool {pool_address}")
                     return default_response
                         
                 attrs = non_sol_token.get('attributes', {})
+                
+                # Get the mint address (token address)
+                mint_address = attrs.get('address')
+                
+                # Get other data as before
                 holders = attrs.get('holders', {}) or {}
                 distribution = holders.get('distribution_percentage', {}) or {}
-                
-                # Just get the raw percentage string, no conversion needed
                 top_10 = distribution.get('top_10', '0')
                 if isinstance(top_10, str):
-                    top_10 = top_10.replace('%', '')  # Remove % if present
+                    top_10 = top_10.replace('%', '')
                 
                 return {
                     'mint_authority': attrs.get('mint_authority') == "yes",
                     'freeze_authority': attrs.get('freeze_authority') == "yes",
-                    'top_10_holders': float(top_10 or 0),  # Store as float
-                    'gt_score': float(attrs.get('gt_score', 0) or 0)
+                    'top_10_holders': float(top_10 or 0),
+                    'gt_score': float(attrs.get('gt_score', 0) or 0),
+                    'mint_address': mint_address  # Include mint_address in response
                 }
                 
             except requests.exceptions.RequestException as e:
