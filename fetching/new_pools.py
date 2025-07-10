@@ -9,6 +9,8 @@ from holder_analyzer import analyze_holder_distribution
 from distribution_detector import detect_distribution_patterns  # Add this import
 
 class GeckoTerminalAPI:
+    MIN_FDV_RESERVE_RATIO = 1.2  # Adjust this value as needed
+
     def __init__(self):
         self.base_url = "https://api.geckoterminal.com/api/v2"
         self.headers = {
@@ -49,10 +51,12 @@ class GeckoTerminalAPI:
                 
                 # Skip pools that don't meet criteria
                 if (fdv < 5000 or 
+                    fdv > 500000 or  # Upper limit for FDV
                     reserve < 1000 or 
                     total_24h_transactions < 25 or 
                     volume < 1000 or
-                    fdv < reserve):
+                    fdv <= reserve or
+                    (fdv / reserve) < self.MIN_FDV_RESERVE_RATIO):  # Add ratio check
                     continue
                 
                 # Get pool info before adding to processed_data
