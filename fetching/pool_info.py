@@ -16,41 +16,33 @@ class PoolInfoAPI:
         self.update_cache = {}
         self.update_delay = 120
         self.last_request_time = 0
-        self.min_request_interval = 0.5
+        self.min_request_interval = 2.0  # Increase to 2 seconds
+        self.cache_timeout = 30  # 30 seconds cache timeout
 
     def get_pool_info(self, pool_address, network="solana"):
-        """Fetch pool information with retries and single delayed update"""
-        default_response = {
-            'mint_authority': False,
-            'freeze_authority': False,
-            'top_10_holders': 0.0,
-            'gt_score': 0.0
-        }
-
-        # Check if this is a delayed update
+        """Fetch pool information with better rate limiting"""
         now = datetime.now()
-        if pool_address in self.update_cache:
-            last_update, update_count = self.update_cache[pool_address]
-            # If we previously got zeros and it's been at least 30 seconds, try again
-            result = self._fetch_pool_info(pool_address, network)
-            if result['gt_score'] == 0.0 and result['top_10_holders'] == 0.0:
-                if (now - last_update).total_seconds() >= 30:
-                    self.logger.info(f"Retrying {pool_address} due to zero values")
-                    result = self._fetch_pool_info(pool_address, network)
-                    if result['gt_score'] > 0.0 or result['top_10_holders'] > 0.0:
-                        self.update_cache[pool_address] = (now, update_count + 1)
-                        return result
-            return result
-
-        # First time fetch
-        result = self._fetch_pool_info(pool_address, network)
-        # If first fetch returns zeros, retry once immediately
-        if result['gt_score'] == 0.0 and result['top_10_holders'] == 0.0:
-            self.logger.info(f"Initial fetch returned zeros for {pool_address}, retrying...")
-            time.sleep(1)  # Brief delay before retry
-            result = self._fetch_pool_info(pool_address, network)
         
-        self.update_cache[pool_address] = (now, 1)
+        # Check cache first
+        if pool_address in self.update_cache:
+            last_update, cached_result = self.update_cache[pool_address]
+            if (now - last_update).total_seconds() < self.cache_timeout:
+                return cached_result
+        
+        # If not in cache or cache expired, fetch new data
+        result = self._fetch_pool_info(pool_address, network)
+        
+        # Only retry if we get zeros AND haven't hit rate limits
+        if (result['gt_score'] == 0.0 and 
+            result['top_10_holders'] == 0.0 and 
+            'rate_limited' not in result):  # Add this flag in _fetch_pool_info
+            time.sleep(self.min_request_interval)
+            retry_result = self._fetch_pool_info(pool_address, network)
+            if retry_result['gt_score'] > 0.0 or retry_result['top_10_holders'] > 0.0:
+                result = retry_result
+        
+        # Update cache
+        self.update_cache[pool_address] = (now, result)
         return result
 
     def _wait_for_rate_limit(self):
