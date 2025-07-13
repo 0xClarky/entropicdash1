@@ -16,7 +16,7 @@ class PoolInfoAPI:
         self.update_cache = {}
         self.update_delay = 120
         self.last_request_time = 0
-        self.min_request_interval = 2.0  # Increase to 2 seconds
+        self.min_request_interval = 1.0  # Increase to 2 seconds
         self.cache_timeout = 30  # 30 seconds cache timeout
 
     def get_pool_info(self, pool_address, network="solana"):
