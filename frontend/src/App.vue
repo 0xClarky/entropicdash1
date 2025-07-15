@@ -78,8 +78,8 @@ function formatScore(num) {
   return num.toFixed(1)
 }
 
-function getGeckoTerminalUrl(address) {
-  return `https://www.geckoterminal.com/solana/pools/${address}`
+function getDexScreenerUrl(address) {
+  return `https://dexscreener.com/solana/${address}`
 }
 
 // Update the computed refreshStatus function:
@@ -347,11 +347,11 @@ function copyToClipboard(text) {
                 {{ token.name }}
               </td>
               <td v-if="visibleColumns.address" class="address">
-                <a :href="getGeckoTerminalUrl(token.address)" 
+                <a :href="getDexScreenerUrl(token.address)" 
                    target="_blank" 
                    class="address-link"
                    :title="token.address">
-                  GT Link
+                  DS Link
                 </a>
               </td>
               <td v-if="visibleColumns.fdv">${{ formatNumber(token.fdv_usd) }}</td>
