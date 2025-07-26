@@ -1,0 +1,19 @@
+{
+  "name": "EntropicDash",
+  "description": "Token tracking dashboard",
+  "repository": "your-repo-url",
+  "env": {
+    "HELIUS_ENDPOINT": {
+      "description": "Helius RPC endpoint URL",
+      "required": true
+    }
+  },
+  "buildpacks": [
+    {
+      "url": "heroku/nodejs"
+    },
+    {
+      "url": "heroku/python"
+    }
+  ]
+}
