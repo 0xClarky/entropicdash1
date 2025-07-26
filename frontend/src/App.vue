@@ -347,10 +347,10 @@ function copyToClipboard(text) {
                 {{ token.name }}
               </td>
               <td v-if="visibleColumns.address" class="address">
-                <a :href="getDexScreenerUrl(token.address)" 
+                <a :href="getDexScreenerUrl(token.mint_address)" 
                    target="_blank" 
                    class="address-link"
-                   :title="token.address">
+                   :title="token.mint_address">
                   GMGN Link
                 </a>
               </td>
