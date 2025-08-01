@@ -50,10 +50,10 @@ class GeckoTerminalAPI:
                 volume = float(h24_volume or 0)
                 
                 # Skip pools that don't meet criteria
-                if (fdv < 5000 or 
-                    fdv > 500000 or  # Upper limit for FDV
-                    reserve < 1000 or 
-                    total_24h_transactions < 25 or 
+                if (fdv < 25000 or 
+                    fdv > 750000 or  # Upper limit for FDV
+                    reserve < 3000 or 
+                    total_24h_transactions < 50 or 
                     volume < 1000 or
                     fdv <= reserve or
                     (fdv / reserve) < self.MIN_FDV_RESERVE_RATIO):  # Add ratio check
